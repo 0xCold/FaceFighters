@@ -154,7 +154,7 @@ describe('Battlefield', () => {
       ],
       stadiumProgram.programId
     );
-    const tx = await stadiumProgram.rpc.initializeStadium({
+    const tx = await stadiumProgram.rpc.initialize({
       accounts: {
         authority: admin.publicKey,
         stadium: stadiumPda,
@@ -332,6 +332,9 @@ describe('Battlefield', () => {
         authority: admin.publicKey,
         stadium: stadiumPda,
         graveyard: graveyardPda,
+        team: teamPda,
+        fighter: fighterStorage,
+        fighterMint: fighterMint.publicKey,
         tokenProgram: TOKEN_PROGRAM_ID
       },
       signers: [admin]
@@ -378,6 +381,18 @@ describe('Battlefield', () => {
       catch {
         console.log("Transaction failed");
       }
+  });
+
+  it('Closes the Stadium program', async () => {
+    const tx = await stadiumProgram.rpc.closeStadium({
+      accounts: {
+        authority: admin.publicKey,
+        stadium: stadiumPda,
+        tokenProgram: TOKEN_PROGRAM_ID
+      },
+      signers: [admin]
+    });
+    console.log("Your transaction signature", tx);
   });
 });
 
