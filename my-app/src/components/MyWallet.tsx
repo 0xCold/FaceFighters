@@ -113,7 +113,7 @@ export const Wallet: FC = () => {
             </div>
 
             { wallet.connected &&
-                (<div className="app row" style={{ minHeight: "94vh", backgroundColor: "#14224f" }}>
+                (<div className="app row" style={{ height: "94vh", minHeight: "94vh", backgroundColor: "#14224f" }}>
                     { 
                         page == "about" && (<About />) ||
                         page == "mint" && (<Mint wallet={ wallet } />) ||

@@ -300,82 +300,79 @@ function Stadium(wallet: any) {
     }
 
     return (
-        <div className="col" style={{height: "100%"}}>
-            
-            { !userInfo && <Spinner /> ||
-                (<>
-                    <div className="row justify-content-center text-center py-2">
-                        <div className="col-4 text-center">
-                            <button onClick={ () =>  initializeStadium(wallet.wallet) } disabled={ userInfo.stadiumInfo !== -1 } style={ adminButtonStyle }>
-                                Create Stadium
-                            </button>
-                        </div>
-                        { (userInfo.stadiumInfo != -1) &&
-                            <>
-                                <div className="col-4 text-center">
-                                    <button onClick={ () =>  openStadium(wallet.wallet) } disabled={ (userInfo.stadiumInfo == -1) || (userInfo.stadiumInfo.gameActive == true) }  style={ adminButtonStyle }>
-                                        Start Game
-                                    </button>
-                                </div>
-                                <div className="col-4 text-center">
-                                    <button onClick={ () =>  initializeStadium(wallet.wallet) } disabled={ (userInfo.stadiumInfo == -1) || (userInfo.stadiumInfo.gameActive == false) }  style={ adminButtonStyle }> 
-                                        Release Bears
-                                    </button>
-                                </div>
-                            </>
-                        }
-                    </div> 
+        !userInfo && <Spinner /> ||
+            (<div className="col" style={{height: "100%"}}>
+                <div className="row justify-content-center text-center py-2">
+                    <div className="col-4 text-center">
+                        <button onClick={ () =>  initializeStadium(wallet.wallet) } disabled={ userInfo.stadiumInfo !== -1 } style={ adminButtonStyle }>
+                            Create Stadium
+                        </button>
+                    </div>
                     { (userInfo.stadiumInfo != -1) &&
-                        ((userInfo.stadiumInfo.gameActive) &&
-                            (!userInfo.stadiumInfo.bearsAreHungry) &&
-                                ((<>
-                                    <div className="row justify-content-center text-center py-2" style={ roundNumDisplayStyle }>
-                                        Round { userInfo.stadiumInfo.currentRound }
-                                    </div>
-                                    { constructStatsRow(statTypes, userInfo.stadiumInfo, seconds) } 
-                                    { (expandAvailableFighters &&
-                                        (constructAvailableFightersRow(wallet)) ||
-                                        (constructExpandAvailableFightersButton(userInfo.stadiumInfo.gameActive)))
-                                    }
-                                    <div className="row justify-content-center text-center pt-2"> 
-                                        <div className="col text-center mx-3" style={{borderRadius: "10px", backgroundColor: "#e99dda", color: "white", fontFamily: "'Fredoka One', cursive"}} >
-                                            <div className="row justify-content-center text-center" style={{fontSize: "2.5vw"}}>
-                                                Living:
-                                            </div>
-                                            { constructTeamFightersRow(wallet) }
-                                        </div>
-
-                                        <div className="col text-center mx-3" style={{borderRadius: "10px", backgroundColor: "#a57ce6", color: "white", fontFamily: "'Fredoka One', cursive"}} >
-                                            <div className="row justify-content-center text-center" style={{fontSize: "2.5vw"}}>
-                                                Fallen:
-                                            </div>
-                                            { constructFallenFightersRow(wallet) }
-                                        </div>
-                                    </div>
-                                </>) ||
-                                (<>
-                                    <div className="row justify-content-center text-center">
-                                        Game not started
-                                    </div>
-                                </>)) ||
-                                (
-                                    <div className="row justify-content-center text-center" style={ bearsAreFeedingMessageStyle }>
-                                        <div className="col-2 text-center">
-                                            { emoji("🐻") }
-                                        </div>
-                                        <div className="col-4 text-center">
-                                            Bears are currently feeding. Try again in a few minutes.
-                                        </div>
-                                        <div className="col-2 text-center">
-                                            { emoji("🐻") }
-                                        </div>
-                                    </div>
-                                )
-                        )
+                        <>
+                            <div className="col-4 text-center">
+                                <button onClick={ () =>  openStadium(wallet.wallet) } disabled={ (userInfo.stadiumInfo == -1) || (userInfo.stadiumInfo.gameActive == true) }  style={ adminButtonStyle }>
+                                    Start Game
+                                </button>
+                            </div>
+                            <div className="col-4 text-center">
+                                <button onClick={ () =>  initializeStadium(wallet.wallet) } disabled={ (userInfo.stadiumInfo == -1) || (userInfo.stadiumInfo.gameActive == false) }  style={ adminButtonStyle }> 
+                                    Release Bears
+                                </button>
+                            </div>
+                        </>
                     }
-                </>)
-            }
-        </div>
+                </div> 
+                { (userInfo.stadiumInfo != -1) &&
+                    ((userInfo.stadiumInfo.gameActive) &&
+                        (!userInfo.stadiumInfo.bearsAreHungry) &&
+                            ((<>
+                                <div className="row justify-content-center text-center py-2" style={ roundNumDisplayStyle }>
+                                    Round { userInfo.stadiumInfo.currentRound }
+                                </div>
+                                { constructStatsRow(statTypes, userInfo.stadiumInfo, seconds) } 
+                                { (expandAvailableFighters &&
+                                    (constructAvailableFightersRow(wallet)) ||
+                                    (constructExpandAvailableFightersButton(userInfo.stadiumInfo.gameActive)))
+                                }
+                                <div className="row justify-content-center text-center pt-2"> 
+                                    <div className="col text-center mx-3" style={{borderRadius: "10px", backgroundColor: "#e99dda", color: "white", fontFamily: "'Fredoka One', cursive"}} >
+                                        <div className="row justify-content-center text-center" style={{fontSize: "2.5vw"}}>
+                                            Living:
+                                        </div>
+                                        { constructTeamFightersRow(wallet) }
+                                    </div>
+
+                                    <div className="col text-center mx-3" style={{borderRadius: "10px", backgroundColor: "#a57ce6", color: "white", fontFamily: "'Fredoka One', cursive"}} >
+                                        <div className="row justify-content-center text-center" style={{fontSize: "2.5vw"}}>
+                                            Fallen:
+                                        </div>
+                                        { constructFallenFightersRow(wallet) }
+                                    </div>
+                                </div>
+                            </>) ||
+                            (<>
+                                <div className="row justify-content-center text-center">
+                                    Game not started
+                                </div>
+                            </>)
+                        ) ||
+                        ( <div className="row justify-content-center text-center" style={ bearsAreFeedingMessageStyle }>
+                                <div className="col-2 text-center">
+                                    { emoji("🐻") }
+                                </div>
+                                <div className="col-4 text-center">
+                                    Bears are currently feeding. Try again in a few minutes.
+                                </div>
+                                <div className="col-2 text-center">
+                                    { emoji("🐻") }
+                                </div>
+                            </div>
+                        )
+                    )
+                }
+            </div>
+        )
     );
 }
 

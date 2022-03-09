@@ -281,6 +281,44 @@ export const getTimeDiff = (elapsed, nextFeed) => {
     return new Date(delta).toISOString().slice(11, -5)
 }
 
+export const getFighterGeneratorInfo = async (wallet) => {
+    const idl = await $.getJSON("./battlefield.json");
+    const provider = await getProvider(wallet);
+    const program = new Program(idl, STADIUM_ID, provider);
+    let [fighterGeneratorPda, _fighterGeneratorBump] = await PublicKey.findProgramAddress(
+        [
+            Buffer.from("fighter-gen")
+        ],
+        STADIUM_ID
+    );
+    try {
+        let fighterGeneratorInfo = await program.account.fighterGenerator.fetch(fighterGeneratorPda);
+        return fighterGeneratorInfo
+    }
+    catch {
+        return -1
+    }
+}
+
+export const getGraveyardInfo = async (wallet) => {
+    const idl = await $.getJSON("./battlefield.json");
+    const provider = await getProvider(wallet);
+    const program = new Program(idl, STADIUM_ID, provider);
+    let [stadiumPda, _stadiumBump] = await PublicKey.findProgramAddress(
+        [
+            Buffer.from("stadium")
+        ],
+        STADIUM_ID
+    );
+    try {
+        let stadiumInfo = await program.account.stadium.fetch(stadiumPda);
+        return stadiumInfo
+    }
+    catch {
+        return -1
+    }
+}
+
 export const getStadiumInfo = async (wallet) => {
     const idl = await $.getJSON("./battlefield.json");
     const provider = await getProvider(wallet);
@@ -298,6 +336,10 @@ export const getStadiumInfo = async (wallet) => {
     catch {
         return -1
     }
+}
+
+export const getUserTicketCount = async (wallet) => {
+    return 2;
 }
 
 export const getBountyInfo = () => {

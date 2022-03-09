@@ -3,7 +3,16 @@
 version = 3
 
 [[package]]
-name = "Battlefield"
+name = "FighterGenerator"
+version = "0.1.0"
+dependencies = [
+ "anchor-lang",
+ "anchor-spl",
+ "spl-token",
+]
+
+[[package]]
+name = "Stadium"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",

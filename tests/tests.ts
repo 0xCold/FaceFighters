@@ -2,14 +2,16 @@ import * as anchor from '@project-serum/anchor';
 import { Program } from '@project-serum/anchor';
 import { TOKEN_PROGRAM_ID, Token, ASSOCIATED_TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { Keypair, SYSVAR_RENT_PUBKEY, LAMPORTS_PER_SOL } from '@solana/web3.js';
-import { Battlefield } from '../target/types/battlefield';
+import { Stadium } from '../target/types/stadium';
+import { FighterGenerator } from '../target/types/fighter_generator';
 
 describe('Battlefield', () => {
 
   const provider = anchor.Provider.env();
   anchor.setProvider(anchor.Provider.env());
 
-  const program = anchor.workspace.Battlefield as Program<Battlefield>;
+  const fighterGeneratorProgram = anchor.workspace.FighterGenerator as Program<FighterGenerator>;
+  const stadiumProgram = anchor.workspace.Stadium as Program<Stadium>;
 
   const admin = anchor.web3.Keypair.generate();
   const user = anchor.web3.Keypair.generate();
@@ -29,7 +31,7 @@ describe('Battlefield', () => {
   let whitelistTokenMint: any;
   let whitelistTokenStorage: any;
 
-  it('Inits FaceFighter program', async () => {
+  it('Inits FighterGenerator program', async () => {
     let sig = await provider.connection.requestAirdrop(admin.publicKey, (LAMPORTS_PER_SOL * 10));
     await provider.connection.confirmTransaction(
       sig,
@@ -44,30 +46,16 @@ describe('Battlefield', () => {
       [
         Buffer.from(anchor.utils.bytes.utf8.encode("fighter-gen"))
       ],
-      program.programId
-    );
-    [stadiumPda, _bump] = await anchor.web3.PublicKey.findProgramAddress(
-      [
-        Buffer.from(anchor.utils.bytes.utf8.encode("stadium"))
-      ],
-      program.programId
-    );
-    [graveyardPda, _bump] = await anchor.web3.PublicKey.findProgramAddress(
-      [
-        Buffer.from(anchor.utils.bytes.utf8.encode("graveyard"))
-      ],
-      program.programId
+      fighterGeneratorProgram.programId
     );
     whitelistTokenMint = Keypair.generate();
     fighterTrackerCoinMint = Keypair.generate();
-    const tx = await program.rpc.initializeStadium({
+    const tx = await fighterGeneratorProgram.rpc.initialize({
       accounts: {
         authority: admin.publicKey,
         fighterGenerator: fighterGeneratorPda,
         whitelistTokenMint: whitelistTokenMint.publicKey,
         fighterTrackerCoinMint: fighterTrackerCoinMint.publicKey,
-        stadium: stadiumPda,
-        graveyard: graveyardPda,
         systemProgram: anchor.web3.SystemProgram.programId,
         tokenProgram: TOKEN_PROGRAM_ID,
         rent: anchor.web3.SYSVAR_RENT_PUBKEY
@@ -80,20 +68,12 @@ describe('Battlefield', () => {
   it('Mints a Fighter', async () => {
     fighterMint = Keypair.generate();
 
-    [teamPda, _bump] = await anchor.web3.PublicKey.findProgramAddress(
-      [
-        Buffer.from(anchor.utils.bytes.utf8.encode("team")),
-        admin.publicKey.toBuffer()
-      ],
-      program.programId
-    );
-
     [fighterDataPda, _bump] = await anchor.web3.PublicKey.findProgramAddress(
       [
         Buffer.from(anchor.utils.bytes.utf8.encode("face-fighter")),
         Buffer.from([0])
       ],
-      program.programId
+      fighterGeneratorProgram.programId
     );
 
     [fighterDestination, _bump] = await anchor.web3.PublicKey.findProgramAddress(
@@ -123,7 +103,7 @@ describe('Battlefield', () => {
       ASSOCIATED_TOKEN_PROGRAM_ID
     );
     
-    const tx = await program.rpc.generateFighter(1, {
+    const tx = await fighterGeneratorProgram.rpc.generateFighter(1, {
       accounts: {
         minter: admin.publicKey,
         authority: admin.publicKey,
@@ -146,9 +126,56 @@ describe('Battlefield', () => {
     });
     console.log("Your transaction signature", tx);
   });
+
+  it('Withdraws mint funds', async () => {
+    const tx = await fighterGeneratorProgram.rpc.withdrawFunds(10, {
+      accounts: {
+        authority: admin.publicKey,
+        fighterGenerator: fighterGeneratorPda,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY
+      },
+      signers: [admin]
+    });
+    console.log("Your transaction signature", tx);
+  });
+
+  it('Inits Stadium program', async () => {
+    [stadiumPda, _bump] = await anchor.web3.PublicKey.findProgramAddress(
+      [
+        Buffer.from(anchor.utils.bytes.utf8.encode("stadium"))
+      ],
+      stadiumProgram.programId
+    );
+    [graveyardPda, _bump] = await anchor.web3.PublicKey.findProgramAddress(
+      [
+        Buffer.from(anchor.utils.bytes.utf8.encode("graveyard"))
+      ],
+      stadiumProgram.programId
+    );
+    const tx = await stadiumProgram.rpc.initializeStadium({
+      accounts: {
+        authority: admin.publicKey,
+        stadium: stadiumPda,
+        graveyard: graveyardPda,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY
+      },
+      signers: [admin]
+    });
+    console.log("Your transaction signature", tx);
+  });
   
   it('Deposits a Fighter', async () => {
-
+    [teamPda, _bump] = await anchor.web3.PublicKey.findProgramAddress(
+      [
+        Buffer.from(anchor.utils.bytes.utf8.encode("team")),
+        admin.publicKey.toBuffer()
+      ],
+      stadiumProgram.programId
+    );
     [fighterStorage, _bump] = await anchor.web3.PublicKey.findProgramAddress(
       [
           teamPda.toBuffer(),
@@ -158,7 +185,7 @@ describe('Battlefield', () => {
       ASSOCIATED_TOKEN_PROGRAM_ID
     );
 
-    const tx = await program.rpc.depositFighter({
+    const tx = await stadiumProgram.rpc.depositFighter({
       accounts: {
         authority: admin.publicKey,
         stadium: stadiumPda,
@@ -216,7 +243,7 @@ describe('Battlefield', () => {
         ASSOCIATED_TOKEN_PROGRAM_ID
       );
 
-      const tx = await program.rpc.depositFighter({
+      const tx = await stadiumProgram.rpc.depositFighter({
         accounts: {
           authority: admin.publicKey,
           stadium: stadiumPda,
@@ -239,7 +266,7 @@ describe('Battlefield', () => {
   });
 
   it('Retrieves a Fighter', async () => {
-    const tx = await program.rpc.retrieveFighter({
+    const tx = await stadiumProgram.rpc.retrieveFighter({
       accounts: {
         authority: admin.publicKey,
         stadium: stadiumPda,
@@ -256,7 +283,7 @@ describe('Battlefield', () => {
   });
 
   it('Re-Deposits a Fighter', async () => {
-    const tx = await program.rpc.depositFighter({
+    const tx = await stadiumProgram.rpc.depositFighter({
       accounts: {
         authority: admin.publicKey,
         stadium: stadiumPda,
@@ -276,7 +303,7 @@ describe('Battlefield', () => {
   });
 
   it('Opens Stadium', async () => {
-    const tx = await program.rpc.openStadium({
+    const tx = await stadiumProgram.rpc.openStadium({
       accounts: {
         authority: admin.publicKey,
         stadium: stadiumPda
@@ -287,7 +314,20 @@ describe('Battlefield', () => {
   });
 
   it('Releases the bears', async () => {
-    const tx = await program.rpc.releaseBears({
+    const tx = await stadiumProgram.rpc.releaseBears({
+      accounts: {
+        authority: admin.publicKey,
+        stadium: stadiumPda,
+        graveyard: graveyardPda,
+        tokenProgram: TOKEN_PROGRAM_ID
+      },
+      signers: [admin]
+    });
+    console.log("Your transaction signature", tx);
+  });
+
+  it('Updates Fighter data based on the Bear attack results', async () => {
+    const tx = await stadiumProgram.rpc.handleFighterChanges({
       accounts: {
         authority: admin.publicKey,
         stadium: stadiumPda,
@@ -300,7 +340,7 @@ describe('Battlefield', () => {
   });
 
   it('Cowards out a Fighter for bounty', async () => {
-    const tx = await program.rpc.retrieveFighter({
+    const tx = await stadiumProgram.rpc.retrieveFighter({
       accounts: {
         authority: admin.publicKey,
         stadium: stadiumPda,
@@ -313,11 +353,12 @@ describe('Battlefield', () => {
       },
       signers: [admin]
     });
+    console.log("Your transaction signature", tx);
   });
 
   it('Fails to re-deposit a Fighter after game start', async () => {
     try {
-      const tx = await program.rpc.depositFighter({
+      const tx = await stadiumProgram.rpc.depositFighter({
         accounts: {
           authority: admin.publicKey,
           stadium: stadiumPda,
