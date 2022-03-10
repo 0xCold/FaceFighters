@@ -14,6 +14,9 @@ pub enum StadiumError {
     #[msg("You cannot deposit Fighters after the game has started.")]
     LateDepositError,
 
+    #[msg("You cannot deposit Fighters into non-empty game tiles.")]
+    InvalidDepositError,
+
     #[msg("You cannot retrieve deposited Fighters until the game has started.")]
     EarlyRetrievalError,
 

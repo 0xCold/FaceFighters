@@ -5,11 +5,11 @@ use anchor_spl::{
 };
 use fighter_generator::{
     program::FighterGenerator,
-    state::{ self, FighterData }
+    state::{ FighterData }
 };
 use crate::{
     state::*,
-    util::{ determine_death_count, update_game_data, get_fighter_state },
+    util::{ get_fighter_state },
     error::{ StadiumError }
 };
 
@@ -60,7 +60,7 @@ pub struct DepositFighter<'info> {
     /// CHECK: This account is unchecked because we trust the deployer
     #[account(
         mut,
-        constraint = get_fighter_state(state.to_account_info(), 0) == 0
+        constraint = get_fighter_state(state.to_account_info(), stadium.num_active_fighters) == EMPTY @ StadiumError::InvalidDepositError
     )]
     pub state: UncheckedAccount<'info>,
 
@@ -128,6 +128,7 @@ impl<'info> DepositFighter<'info> {
 }
 
 #[derive(Accounts)]
+#[instruction(fighter_index: u8)]
 pub struct RetrieveFighter<'info> {
     #[account(mut)]
     pub authority: Signer<'info>,
@@ -146,10 +147,10 @@ pub struct RetrieveFighter<'info> {
     /// CHECK: This account is unchecked because we trust the deployer
     #[account(
         mut,
-        constraint = get_fighter_state(state.to_account_info(), 0) != 5 @ StadiumError::DeadFighterError
+        constraint = get_fighter_state(state.to_account_info(), team.fighter_indices[fighter_index as usize]) != DEAD @ StadiumError::DeadFighterError
     )]
     pub state: UncheckedAccount<'info>,
-
+    
     #[account(
         mut,
         seeds = [

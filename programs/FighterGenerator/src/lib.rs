@@ -38,7 +38,7 @@ pub mod fighter_generator {
             &FIGHTER_GENERATOR_PDA_SEED[..], 
             &[fighter_generator_bump_seed]
         ];
-        let metadata_infos = vec![
+        let _metadata_infos = vec![
             ctx.accounts.fighter_metadata.to_account_info(),
             ctx.accounts.fighter_mint.to_account_info(),
             ctx.accounts.fighter_generator.to_account_info(),

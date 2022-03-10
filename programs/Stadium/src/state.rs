@@ -1,5 +1,14 @@
 use anchor_lang::prelude::*;
 
+pub const EMPTY: u8 = 0;
+pub const WARRIOR: u8 = 1;
+pub const TANK: u8 = 2;
+pub const TANK_DAMAGED: u8 = 3;
+pub const RANGED: u8 = 4;
+pub const MAGE: u8 = 5;
+pub const COWARD: u8 = 6;
+pub const DEAD: u8 = 7;
+
 #[account]
 #[derive(Default)]
 pub struct Stadium {

@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use std::{
     cmp, 
-    cell::{RefCell, RefMut}
+    cell::{RefMut}
 };
 
 pub fn determine_death_count(num_active_fighters: u16, round: u16) -> u16 {
@@ -16,49 +16,51 @@ pub fn determine_death_count(num_active_fighters: u16, round: u16) -> u16 {
     if hunger >= num_active_fighters {
         hunger = num_active_fighters - 1;
     }
-    return cmp::min(hunger, 50);
+    //return cmp::min(hunger, 50);
+    return 1;
 }
 
 pub fn get_fighter_offset(fighter_index: u16) -> (u16, u8) {
     let mut fighter_byte_offset = fighter_index * 4;
     let mut fighter_bit_offset = 0;
-    if fighter_byte_offset % 8 != 0 {
+    if (fighter_byte_offset % 8) != 0 {
         fighter_byte_offset -= 4;
         fighter_bit_offset += 4
     }
     fighter_byte_offset /= 8;
+    msg!("Index: {} Byte Offset: {} Bit Offset: {}", fighter_index, fighter_byte_offset, fighter_bit_offset);
     return (fighter_byte_offset, fighter_bit_offset);
 }
 
 pub fn get_updated_fighter_pair_byte(pair_byte: u8, new_fighter_state: u8, offset_bits: u8) -> u8 {
     if offset_bits > 0 {
-        let other_fighter = (pair_byte >> 4) << 4;  //XXXXYYYY -> XXXX0000
-        let pair_byte = other_fighter | new_fighter_state;
+        let other_fighter = pair_byte & 0b1111_0000;
+        let new_pair_byte = other_fighter | new_fighter_state;
+        return new_pair_byte;
     }
-    else {
-        let other_fighter = (pair_byte << 4) >> 4;  //XXXXYYYY -> 0000YYYY
-        let pair_byte = other_fighter | (new_fighter_state << 4);
-    }
-    return pair_byte;
+    let other_fighter = pair_byte & 0b0000_1111;
+    let new_pair_byte = other_fighter | (new_fighter_state << 4);
+    msg!("Original Pair: {} New State: {} Bit Offset: {} New Pair: {}", pair_byte, new_fighter_state, offset_bits, pair_byte);
+    return new_pair_byte;
 }
 
-pub fn update_game_data(mut game_data: RefMut<&mut[u8]>, fighter_num: u16, fighter_state: u8) -> u8 {
+pub fn update_game_data(mut game_data: RefMut<&mut[u8]>, fighter_num: u16, fighter_state: u8) {
     let (fighter_byte_offset, fighter_bit_offset) = get_fighter_offset(fighter_num);
+    msg!("Updating GameTile @: Fighter Offset: {} Fighter Bit Offset: {}", fighter_byte_offset, fighter_bit_offset);
     game_data[fighter_byte_offset as usize] = get_updated_fighter_pair_byte(
         game_data[fighter_byte_offset as usize], 
+        fighter_state,
         fighter_bit_offset, 
-        fighter_state
     );
-    return 1;
 }
 
 pub fn get_fighter_state(game_data_account: AccountInfo, fighter_num: u16) -> u8 {
     let game_data = game_data_account.try_borrow_mut_data().unwrap();
     let (fighter_byte_offset, fighter_bit_offset) = get_fighter_offset(fighter_num);
     if fighter_bit_offset > 0 {
-        let fighter_state = (game_data[fighter_byte_offset as usize] & 0b0000_1111) << 4;
+        let fighter_state = game_data[fighter_byte_offset as usize] & 0b0000_1111;
         return fighter_state;
     }
-    let fighter_state = game_data[fighter_byte_offset as usize] & 0b1111_0000;
+    let fighter_state = (game_data[fighter_byte_offset as usize] & 0b1111_0000) >> 4;
     return fighter_state;
 }

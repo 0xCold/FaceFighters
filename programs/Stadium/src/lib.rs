@@ -3,10 +3,16 @@ use anchor_lang::solana_program::{
     program::{invoke}, 
     system_instruction::{transfer}
 };
+use crate::{
+    state::*
+};
 use anchor_spl::token::{self};
-use std::cell::{RefCell, RefMut};
 use instructions::*;
-use util::{determine_death_count, update_game_data};
+use util::{
+    determine_death_count, 
+    update_game_data,
+    get_fighter_state
+};
 pub mod state;
 pub mod instructions;
 pub mod util;
@@ -50,7 +56,7 @@ pub mod stadium {
         update_game_data(
             ctx.accounts.state.try_borrow_mut_data()?, 
             ctx.accounts.stadium.num_active_fighters, 
-            5
+            ctx.accounts.fighter_data.fighter_class
         );
         let new_index = ctx.accounts.team.num_fighters;
         ctx.accounts.team.fighter_mints[new_index as usize] = *ctx.accounts.fighter_mint.to_account_info().key;
@@ -82,27 +88,36 @@ pub mod stadium {
         update_game_data(
             ctx.accounts.state.try_borrow_mut_data()?, 
             ctx.accounts.team.fighter_indices[fighter_index as usize], 
-            0
+            COWARD
         );
+        **ctx.accounts.authority.to_account_info().try_borrow_mut_lamports()? += ctx.accounts.stadium.bounty / u64::from(ctx.accounts.stadium.num_active_fighters);
+        **ctx.accounts.stadium.to_account_info().lamports.borrow_mut() -= ctx.accounts.stadium.bounty / u64::from(ctx.accounts.stadium.num_active_fighters);
+        ctx.accounts.stadium.bounty -= ctx.accounts.stadium.bounty / u64::from(ctx.accounts.stadium.num_active_fighters);
         ctx.accounts.stadium.num_active_fighters -= 1;
-        **ctx.accounts.authority.to_account_info().try_borrow_mut_lamports()? += ctx.accounts.stadium.bounty;
-        **ctx.accounts.stadium.to_account_info().lamports.borrow_mut() -= ctx.accounts.stadium.bounty;
         Ok(())
     }
     
     pub fn release_bears(ctx: Context<ReleaseBears>) -> ProgramResult {
         let num_fighters_attacked = determine_death_count(ctx.accounts.stadium.num_active_fighters, ctx.accounts.stadium.round);
         let bear_target = 0;
-        let num_fighters_eaten = num_fighters_attacked;
+        let num_fighters_eaten = 0;
+        let mut attack_num = 0;
+        let mut successful_attacks = 0;
+        while successful_attacks < num_fighters_attacked {
+            if !([EMPTY, COWARD, DEAD].contains(&get_fighter_state(ctx.accounts.state.to_account_info(), bear_target + attack_num))) {
+                update_game_data(
+                    ctx.accounts.state.try_borrow_mut_data()?, 
+                    bear_target + attack_num, 
+                    DEAD
+                );
+                successful_attacks += 1;
+            }
+            attack_num += 1;
+        }
         ctx.accounts.stadium.num_active_fighters -= num_fighters_eaten;
         ctx.accounts.stadium.num_fallen_fighters += num_fighters_eaten;
         ctx.accounts.stadium.last_round_timestamp = Clock::get().unwrap().unix_timestamp as u64;
         ctx.accounts.stadium.round += 1;
-        update_game_data(
-            ctx.accounts.state.try_borrow_mut_data()?, 
-            bear_target, 
-            5
-        );
         Ok(())
     }
 
