@@ -60,8 +60,8 @@ pub struct FighterGenerator {
     pub authority: Pubkey,
     pub mint_price: u64,
     pub sale_length: u64,
-    pub max_fighters: u32,
-    pub num_fighters_minted: u32,
+    pub max_fighters: u16,
+    pub num_fighters_minted: u16,
     pub whitelist_token_mint: Pubkey,
     pub fighter_tracker_coin_mint: Pubkey,
 }
@@ -71,8 +71,8 @@ impl FighterGenerator {
         32 +    // Authority pubkey
         64 +    // Cost to mint a Fighter in SOL
         64 +    // Length of the sale in seconds
-        32 +    // Maximum number of Fighters to be minted
-        32 +    // Current number of minted Fighters
+        16 +    // Maximum number of Fighters to be minted
+        16 +    // Current number of minted Fighters
         32 +    // Pubkey of the whitelist token mint
         32;     // Pubkey of the Fighter-tracker token mint
 }
@@ -111,18 +111,19 @@ pub struct FighterFaceData {
 
 impl FighterFaceData {
     pub const SIZE: usize = 
-        32 + 8 + 16 +       // Head
-        32 + 8 + 16 +       // Eyes
-        32 + 8 + 16 +       // Mouth
-        64 + 8 + 32 +       // Hands
-        32 + 8 + 16 +       // Hat
-        32 + 8 + 16 +       // Weapon
-        8 + 96 + 32 + 48;   // Inujuries
+        (32 + 8 + 16) +     // Head
+        (32 + 8 + 16) +     // Eyes
+        (32 + 8 + 16) +     // Mouth
+        (64 + 8 + 32) +     // Hands
+        (32 + 8 + 16) +     // Hat
+        (32 + 8 + 16) +     // Weapon
+        (8 + 96 + 32 + 48); // Inujuries
 }
 
 #[account]
 pub struct FighterData {
     pub fighter_mint: Pubkey,
+    pub index: u16,
     pub fighter_tracker_coin_storage: Pubkey,
     pub fighter_class: u8,
     pub face_data: FighterFaceData
@@ -131,6 +132,7 @@ pub struct FighterData {
 impl FighterData {
     pub const SIZE: usize = 
         32 +                    // Mint Pubkey
+        16 +                    // Fighter index
         32 +                    // Fighter-Tracker-Coin Mint Pubkey
         8 +                     // Class num
         FighterFaceData::SIZE;  // Face Data

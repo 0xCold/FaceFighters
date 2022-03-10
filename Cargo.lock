@@ -15,6 +15,7 @@ dependencies = [
 name = "Stadium"
 version = "0.1.0"
 dependencies = [
+ "FighterGenerator",
  "anchor-lang",
  "anchor-spl",
  "spl-token",

@@ -27,7 +27,7 @@ pub mod fighter_generator {
         Ok(())
     }
 
-    pub fn generate_fighter(ctx: Context<GenerateFighter>, class: u8) -> ProgramResult {
+    pub fn generate_fighter(ctx: Context<GenerateFighter>, class: u8, use_ticket: bool) -> ProgramResult {
         let (_fighter_generator_pda, fighter_generator_bump_seed) = Pubkey::find_program_address(
             &[
                 FIGHTER_GENERATOR_PDA_SEED
@@ -54,8 +54,7 @@ pub mod fighter_generator {
             &ctx.accounts.fighter_generator.to_account_info().key,
             ctx.accounts.fighter_generator.mint_price.into(),
         );
-        let use_whitelist_token = true;
-        if !use_whitelist_token {
+        if !use_ticket {
             invoke(
                 transfer_instruction,
                 &[
@@ -81,6 +80,7 @@ pub mod fighter_generator {
             None => return Err(error::FighterGeneratorError::Error.into()),
         };
         ctx.accounts.fighter_data.fighter_mint = *ctx.accounts.fighter_mint.to_account_info().key;
+        ctx.accounts.fighter_data.index = ctx.accounts.fighter_generator.num_fighters_minted;
         ctx.accounts.fighter_data.fighter_tracker_coin_storage = *ctx.accounts.fighter_tracker_coin_destination.to_account_info().key;
         ctx.accounts.fighter_data.fighter_class = class;
         ctx.accounts.fighter_data.face_data = FighterFaceData {

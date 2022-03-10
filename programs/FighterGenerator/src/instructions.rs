@@ -101,7 +101,7 @@ pub struct GenerateFighter<'info> {
         payer = minter,
         seeds = [
             b"face-fighter".as_ref(),
-            &[0]
+            fighter_mint.to_account_info().key.as_ref()
         ], 
         bump,
         space = 8 + FighterData::SIZE

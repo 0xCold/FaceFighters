@@ -19,3 +19,4 @@ default = []
 anchor-lang = {version = "0.21.0", features = ["init-if-needed"]}
 anchor-spl = "0.21.0"
 spl-token = {version = "3.2.0", features = ["no-entrypoint"]}
+FighterGenerator = { path = "../FighterGenerator", features = ["cpi"] }
