@@ -50,6 +50,7 @@ pub struct GenerateFighter<'info> {
     pub minter: Signer<'info>,
 
     /// CHECK: This account is validated through the fighter-generator PDA verification
+    #[account(mut)]
     pub authority: UncheckedAccount<'info>,
 
     #[account(

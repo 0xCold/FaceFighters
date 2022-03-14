@@ -9,7 +9,8 @@ use crate::{
 use anchor_spl::token::{self};
 use instructions::*;
 use util::{
-    determine_death_count, 
+    generate_random_integer,
+    calc_num_attacks_this_round, 
     update_game_data,
     get_fighter_state
 };
@@ -98,17 +99,38 @@ pub mod stadium {
     }
     
     pub fn release_bears(ctx: Context<ReleaseBears>) -> ProgramResult {
-        let num_fighters_attacked = determine_death_count(ctx.accounts.stadium.num_active_fighters, ctx.accounts.stadium.round);
+        let num_fighters_attacked = calc_num_attacks_this_round(ctx.accounts.stadium.num_active_fighters, ctx.accounts.stadium.round);
         let bear_target = 0;
-        let num_fighters_eaten = 0;
         let mut attack_num = 0;
         let mut successful_attacks = 0;
+        let mut num_fighters_eaten = num_fighters_attacked;
         while successful_attacks < num_fighters_attacked {
-            if !([EMPTY, COWARD, DEAD].contains(&get_fighter_state(ctx.accounts.state.to_account_info(), bear_target + attack_num))) {
+            let fighter_state = get_fighter_state(
+                ctx.accounts.state.to_account_info(), 
+                bear_target + attack_num
+            );
+            if !([EMPTY, COWARD, DEAD].contains(&fighter_state)) {
+                let mut new_state = DEAD;
+                if fighter_state == WARRIOR {
+                    let strength_roll = generate_random_integer(&Clock::get().unwrap().unix_timestamp.to_ne_bytes(), 100);
+                    msg!("Warrior rolled: {}", strength_roll);
+                    if strength_roll > 33 {
+                        new_state = WARRIOR;
+                        num_fighters_eaten -= 1;
+                    }
+                }
+                else if fighter_state == TANK {
+                    new_state = HURT;
+                    num_fighters_eaten -= 1;
+                }
+                else if fighter_state == PROTECTED {
+                    new_state = MAGE;
+                    num_fighters_eaten -= 1;
+                }
                 update_game_data(
                     ctx.accounts.state.try_borrow_mut_data()?, 
                     bear_target + attack_num, 
-                    DEAD
+                    new_state
                 );
                 successful_attacks += 1;
             }

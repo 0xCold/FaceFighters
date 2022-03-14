@@ -3,9 +3,13 @@ use anchor_lang::solana_program::program::{invoke};
 use anchor_lang::solana_program::system_instruction::{transfer};
 use anchor_spl::token::{mint_to};
 use instructions::*;
+use util::{
+    generate_random_integer
+};
 use crate::state::{FighterFaceData, HEADS, HATS, EYES, MOUTHS, HANDS, WEAPONS, INJURIES};
 pub mod state;
 pub mod instructions;
+pub mod util;
 pub mod error;
 
 declare_id!("JAdBaeRXnML6nVBAUuFXPGpH954PpCB4oX9oGS4bU8Hw");
@@ -38,7 +42,10 @@ pub mod fighter_generator {
             &FIGHTER_GENERATOR_PDA_SEED[..], 
             &[fighter_generator_bump_seed]
         ];
-        let _metadata_infos = vec![
+
+
+
+        let metadata_infos = vec![
             ctx.accounts.fighter_metadata.to_account_info(),
             ctx.accounts.fighter_mint.to_account_info(),
             ctx.accounts.fighter_generator.to_account_info(),
@@ -49,8 +56,58 @@ pub mod fighter_generator {
             ctx.accounts.rent.to_account_info(),
             ctx.accounts.authority.to_account_info(),
         ];
+        let master_edition_infos = vec![
+            ctx.accounts.fighter_master_edition.to_account_info(),
+            ctx.accounts.fighter_mint.to_account_info(),
+            ctx.accounts.fighter_generator.to_account_info(),
+            ctx.accounts.minter.to_account_info(),
+            ctx.accounts.fighter_metadata.to_account_info(),
+            ctx.accounts.token_metadata_program.to_account_info(),
+            ctx.accounts.token_program.to_account_info(),
+            ctx.accounts.system_program.to_account_info(),
+            ctx.accounts.rent.to_account_info(),
+            ctx.accounts.authority.to_account_info(),
+        ];
+        invoke_signed(
+            &create_metadata_accounts_v2(
+                ctx.accounts.token_metadata_program.key(),
+                ctx.accounts.fighter_metadata.key(),
+                ctx.accounts.fighter_mint.key(),
+                ctx.accounts.mint_authority.key(),
+                ctx.accounts.minter.key(),
+                candy_machine_creator.key(),
+                config_line.name,
+                candy_machine.data.symbol.clone(),
+                config_line.uri,
+                Some(creators),
+                candy_machine.data.seller_fee_basis_points,
+                true,
+                candy_machine.data.is_mutable,
+                None,
+                None,
+            ),
+            metadata_infos.as_slice(),
+            &[&authority_seeds],
+        )?;
+        invoke_signed(
+            &create_master_edition_v3(
+                ctx.accounts.token_metadata_program.key(),
+                ctx.accounts.master_edition.key(),
+                ctx.accounts.mint.key(),
+                candy_machine_creator.key(),
+                ctx.accounts.mint_authority.key(),
+                ctx.accounts.metadata.key(),
+                ctx.accounts.payer.key(),
+                Some(candy_machine.data.max_supply),
+            ),
+            master_edition_infos.as_slice(),
+            &[&authority_seeds],
+        )?;
+
+
+
         let transfer_instruction = &transfer(
-            &ctx.accounts.fighter_generator.authority,
+            &ctx.accounts.minter.to_account_info().key,
             &ctx.accounts.fighter_generator.to_account_info().key,
             ctx.accounts.fighter_generator.mint_price.into(),
         );
@@ -83,6 +140,7 @@ pub mod fighter_generator {
         ctx.accounts.fighter_data.index = ctx.accounts.fighter_generator.num_fighters_minted;
         ctx.accounts.fighter_data.fighter_tracker_coin_storage = *ctx.accounts.fighter_tracker_coin_destination.to_account_info().key;
         ctx.accounts.fighter_data.fighter_class = class;
+        let face_roll = generate_random_integer(&Clock::get().unwrap().unix_timestamp.to_ne_bytes(), 100);
         ctx.accounts.fighter_data.face_data = FighterFaceData {
             head: HEADS[0], head_size: 1, head_pos: [0, 0],
             eyes: EYES[0], eyes_size: 1, eyes_pos: [0, 0],

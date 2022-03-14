@@ -22,12 +22,23 @@ async function printStadiumInfo(program: any, pubkey: any) {
 }
 
 async function printGameState(program: any, pubkey: any, provider: any) {
+  let fighter_type_strings = [
+    " -- ",
+    " Wa ",
+    " T+ ",
+    " M- ",
+    " Hn ",
+    " // ",
+    " T- ",
+    " M+ ",
+    " XX "
+  ];
   const stadiumAccount = await program.account.stadium.fetch(pubkey);
   const gameStateAccount = await provider.connection.getParsedAccountInfo(stadiumAccount.gameData);
   let gameStateInfo = "GAME STATE:\n";
   let pairs_parsed = 0;
   for (let fighter_pair of gameStateAccount.value.data) {
-    gameStateInfo += ((fighter_pair & 240) >> 4) + " " + (fighter_pair & 15) + " ";
+    gameStateInfo += fighter_type_strings[((fighter_pair & 240) >> 4)] + " " + fighter_type_strings[(fighter_pair & 15)] + " ";
     if (pairs_parsed == 49) {
       break;
     }
@@ -47,42 +58,50 @@ describe('FaceFighter Stadium', () => {
   const fighterGeneratorProgram = anchor.workspace.FighterGenerator as Program<FighterGenerator>;
   const stadiumProgram = anchor.workspace.Stadium as Program<Stadium>;
 
-  const admin = anchor.web3.Keypair.generate();
-  const user = anchor.web3.Keypair.generate();
-
   let _bump: any;
+
+  let admin: any;
+  let users: any = [];
+  let numUsers = 10;
+
   let fighterGeneratorPda: any;
   let stadiumPda: any;
   let stateAcc: any;
-  let teamPda: any;
-  let fighterMint: any;
-  let fighterMint2: any;
-  let fighterDestination: any;
-  let fighterDestination2: any;
-  let fighter: any;
-  let fighterDataPda: any;
-  let fighterDataPda2: any;
-  let fighterStorage: any;
-  let fighterStorage2: any;
-  let fighterTrackerCoinMint: any;
-  let fighterTrackerCoinDestination: any;
-  let fighterTrackerCoinDestination2: any;
-  let whitelistTokenMint: any;
-  let whitelistTokenStorage: any;
-  let whitelistTokenStorage2: any;
 
-  it('Inits FighterGenerator program', async () => {
+  let fighterTrackerCoinMint: any;
+  let whitelistTokenMint: any;
+
+  let teamPdas: any = [];
+  let fighterMints: any = [];
+  let fighterDestinations: any = [];
+  let fighterDataPdas: any = [];
+  let fighterStorages: any = [];
+  let fighterTrackerCoinDestinations: any = [];
+  let whitelistTokenStorages: any = [];
+
+  it('Prepares accounts for testing', async () => {
     console.log("\n");
+    admin = anchor.web3.Keypair.generate();
     let sig = await provider.connection.requestAirdrop(admin.publicKey, (LAMPORTS_PER_SOL * 10));
     await provider.connection.confirmTransaction(
       sig,
         "singleGossip"
     );
-    let sig2 = await provider.connection.requestAirdrop(user.publicKey, (LAMPORTS_PER_SOL * 10));
-    await provider.connection.confirmTransaction(
-      sig2,
-        "singleGossip"
-    );
+    console.log("Admin generated: " + admin.publicKey.toString());
+    for (let i = 0; i < numUsers; i++) {
+      let newUser = anchor.web3.Keypair.generate();
+      let sig = await provider.connection.requestAirdrop(newUser.publicKey, (LAMPORTS_PER_SOL * 10));
+      await provider.connection.confirmTransaction(
+        sig,
+          "singleGossip"
+      );
+      console.log("User #" + i + " generated: " + newUser.publicKey.toString());
+      users.push(newUser);
+    }
+  });
+  
+  it('Inits FighterGenerator program', async () => {
+    console.log("\n");
     [fighterGeneratorPda, _bump] = await anchor.web3.PublicKey.findProgramAddress(
       [
         Buffer.from(anchor.utils.bytes.utf8.encode("fighter-gen"))
@@ -106,87 +125,102 @@ describe('FaceFighter Stadium', () => {
     console.log(await printFighterGeneratorInfo(fighterGeneratorProgram, fighterGeneratorPda));
   });
 
-  it('Mints a Fighter', async () => {
+  it('Mints 5 fighters per user', async () => {
     console.log("\n");
-    fighterMint = Keypair.generate();
-    [fighterDataPda, _bump] = await anchor.web3.PublicKey.findProgramAddress(
-      [
-        Buffer.from(anchor.utils.bytes.utf8.encode("face-fighter")),
-        fighterMint.publicKey.toBuffer(),
-      ],
-      fighterGeneratorProgram.programId
-    );
-    [fighterDestination, _bump] = await anchor.web3.PublicKey.findProgramAddress(
-      [
-        admin.publicKey.toBuffer(),
-        TOKEN_PROGRAM_ID.toBuffer(),
-        fighterMint.publicKey.toBuffer(),
-      ],
-      ASSOCIATED_TOKEN_PROGRAM_ID
-    );
-    [whitelistTokenStorage, _bump] = await anchor.web3.PublicKey.findProgramAddress(
-      [
-        admin.publicKey.toBuffer(),
-        TOKEN_PROGRAM_ID.toBuffer(),
-        whitelistTokenMint.publicKey.toBuffer(),
-      ],
-      ASSOCIATED_TOKEN_PROGRAM_ID
-    );
-    [fighterTrackerCoinDestination, _bump] = await anchor.web3.PublicKey.findProgramAddress(
-      [
-        fighterDataPda.toBuffer(),
-        TOKEN_PROGRAM_ID.toBuffer(),
-        fighterTrackerCoinMint.publicKey.toBuffer(),
-      ],
-      ASSOCIATED_TOKEN_PROGRAM_ID
-    );
-    let oldBal = await provider.connection.getBalance(admin.publicKey);
-    const tx = await fighterGeneratorProgram.rpc.generateFighter(1, false, {
-      accounts: {
-        minter: admin.publicKey,
-        authority: admin.publicKey,
-        fighterGenerator: fighterGeneratorPda,
-        whitelistTokenMint: whitelistTokenMint.publicKey,
-        whitelistTokenStorage: whitelistTokenStorage,
-        fighterTrackerCoinMint: fighterTrackerCoinMint.publicKey,
-        fighterTrackerCoinDestination: fighterTrackerCoinDestination,
-        fighterMint: fighterMint.publicKey,
-        fighterData: fighterDataPda,
-        fighterMetadata: fighterMint.publicKey,
-        fighterDestination: fighterDestination,
-        systemProgram: anchor.web3.SystemProgram.programId,
-        tokenProgram: TOKEN_PROGRAM_ID,
-        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-        tokenMetadataProgram: fighterMint.publicKey,
-        rent: anchor.web3.SYSVAR_RENT_PUBKEY
-      },
-      signers: [admin, fighterMint]
-    });
-    console.log(await printFighterGeneratorInfo(fighterGeneratorProgram, fighterGeneratorPda));
-    let newBal = await provider.connection.getBalance(admin.publicKey);
-    let deltaBal = (newBal - oldBal) / LAMPORTS_PER_SOL;
-    console.log("Balance change:", deltaBal);
+    for (let i = 0; i < numUsers; i++) {
+      fighterMints.push([]);
+      fighterDataPdas.push([]);
+      fighterDestinations.push([]);
+      fighterTrackerCoinDestinations.push([]);
+      let [newWhitelistTokenStorage, ___bump] = await anchor.web3.PublicKey.findProgramAddress(
+        [
+          users[i].publicKey.toBuffer(),
+          TOKEN_PROGRAM_ID.toBuffer(),
+          whitelistTokenMint.publicKey.toBuffer(),
+        ],
+        ASSOCIATED_TOKEN_PROGRAM_ID
+      );
+      whitelistTokenStorages.push(newWhitelistTokenStorage);
+      for (let j = 0; j < 5; j++) {
+        let newFighterMint = Keypair.generate();
+        let [newFighterDataPda, _bump] = await anchor.web3.PublicKey.findProgramAddress(
+          [
+            Buffer.from(anchor.utils.bytes.utf8.encode("face-fighter")),
+            newFighterMint.publicKey.toBuffer(),
+          ],
+          fighterGeneratorProgram.programId
+        );
+        let [newFighterDestination, __bump] = await anchor.web3.PublicKey.findProgramAddress(
+          [
+            users[i].publicKey.toBuffer(),
+            TOKEN_PROGRAM_ID.toBuffer(),
+            newFighterMint.publicKey.toBuffer(),
+          ],
+          ASSOCIATED_TOKEN_PROGRAM_ID
+        );
+        let [newFighterTrackerCoinDestination, ____bump] = await anchor.web3.PublicKey.findProgramAddress(
+          [
+            newFighterDataPda.toBuffer(),
+            TOKEN_PROGRAM_ID.toBuffer(),
+            fighterTrackerCoinMint.publicKey.toBuffer(),
+          ],
+          ASSOCIATED_TOKEN_PROGRAM_ID
+        );
+        fighterMints[i].push(newFighterMint);
+        fighterDataPdas[i].push(newFighterDataPda);
+        fighterDestinations[i].push(newFighterDestination);
+        fighterTrackerCoinDestinations[i].push(newFighterTrackerCoinDestination);
+        let classOptions = [1, 2, 3];
+        let randomClass = classOptions[Math.floor(Math.random() * classOptions.length)];
+        let oldBal = await provider.connection.getBalance(users[i].publicKey);
+        const tx = await fighterGeneratorProgram.rpc.generateFighter(randomClass, false, {
+          accounts: {
+            minter: users[i].publicKey,
+            authority: admin.publicKey,
+            fighterGenerator: fighterGeneratorPda,
+            whitelistTokenMint: whitelistTokenMint.publicKey,
+            whitelistTokenStorage: newWhitelistTokenStorage,
+            fighterTrackerCoinMint: fighterTrackerCoinMint.publicKey,
+            fighterTrackerCoinDestination: newFighterTrackerCoinDestination,
+            fighterMint: newFighterMint.publicKey,
+            fighterData: newFighterDataPda,
+            fighterMetadata: newFighterMint.publicKey,
+            fighterDestination: newFighterDestination,
+            systemProgram: anchor.web3.SystemProgram.programId,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+            tokenMetadataProgram: newFighterMint.publicKey,
+            rent: anchor.web3.SYSVAR_RENT_PUBKEY
+          },
+          signers: [users[i], newFighterMint]
+        });
+        console.log(await printFighterGeneratorInfo(fighterGeneratorProgram, fighterGeneratorPda));
+        let newBal = await provider.connection.getBalance(users[i].publicKey);
+        let deltaBal = (newBal - oldBal) / LAMPORTS_PER_SOL;
+        console.log("Balance change:", deltaBal);
+      }
+    }
   });
 
   it('Mints a Fighter for free using a Golden Ticket', async () => {
     console.log("\n");
-    fighterMint2 = Keypair.generate();
-    [fighterDataPda2, _bump] = await anchor.web3.PublicKey.findProgramAddress(
+    let freeFighterMint = Keypair.generate();
+    let [freeFighterDataPda, _bump] = await anchor.web3.PublicKey.findProgramAddress(
       [
         Buffer.from(anchor.utils.bytes.utf8.encode("face-fighter")),
-        fighterMint2.publicKey.toBuffer(),
+        freeFighterMint.publicKey.toBuffer(),
       ],
       fighterGeneratorProgram.programId
     );
-    [fighterDestination2, _bump] = await anchor.web3.PublicKey.findProgramAddress(
+    let [freeFighterDestination, __bump] = await anchor.web3.PublicKey.findProgramAddress(
       [
         admin.publicKey.toBuffer(),
         TOKEN_PROGRAM_ID.toBuffer(),
-        fighterMint2.publicKey.toBuffer(),
+        freeFighterMint.publicKey.toBuffer(),
       ],
       ASSOCIATED_TOKEN_PROGRAM_ID
     );
-    [whitelistTokenStorage2, _bump] = await anchor.web3.PublicKey.findProgramAddress(
+    let [freeWhitelistTokenStorage, ___bump] = await anchor.web3.PublicKey.findProgramAddress(
       [
         admin.publicKey.toBuffer(),
         TOKEN_PROGRAM_ID.toBuffer(),
@@ -194,9 +228,9 @@ describe('FaceFighter Stadium', () => {
       ],
       ASSOCIATED_TOKEN_PROGRAM_ID
     );
-    [fighterTrackerCoinDestination2, _bump] = await anchor.web3.PublicKey.findProgramAddress(
+    let [freeFighterTrackerCoinDestination, ____bump] = await anchor.web3.PublicKey.findProgramAddress(
       [
-        fighterDataPda2.toBuffer(),
+        freeFighterDataPda.toBuffer(),
         TOKEN_PROGRAM_ID.toBuffer(),
         fighterTrackerCoinMint.publicKey.toBuffer(),
       ],
@@ -209,20 +243,20 @@ describe('FaceFighter Stadium', () => {
         authority: admin.publicKey,
         fighterGenerator: fighterGeneratorPda,
         whitelistTokenMint: whitelistTokenMint.publicKey,
-        whitelistTokenStorage: whitelistTokenStorage2,
+        whitelistTokenStorage: freeWhitelistTokenStorage,
         fighterTrackerCoinMint: fighterTrackerCoinMint.publicKey,
-        fighterTrackerCoinDestination: fighterTrackerCoinDestination2,
-        fighterMint: fighterMint2.publicKey,
-        fighterData: fighterDataPda2,
-        fighterMetadata: fighterMint2.publicKey,
-        fighterDestination: fighterDestination2,
+        fighterTrackerCoinDestination: freeFighterTrackerCoinDestination,
+        fighterMint: freeFighterMint.publicKey,
+        fighterData: freeFighterDataPda,
+        fighterMetadata: freeFighterMint.publicKey,
+        fighterDestination: freeFighterDestination,
         systemProgram: anchor.web3.SystemProgram.programId,
         tokenProgram: TOKEN_PROGRAM_ID,
         associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-        tokenMetadataProgram: fighterMint2.publicKey,
+        tokenMetadataProgram: freeFighterMint.publicKey,
         rent: anchor.web3.SYSVAR_RENT_PUBKEY
       },
-      signers: [admin, fighterMint2]
+      signers: [admin, freeFighterMint]
     });
     console.log(await printFighterGeneratorInfo(fighterGeneratorProgram, fighterGeneratorPda));
     let newBal = await provider.connection.getBalance(admin.publicKey);
@@ -294,77 +328,51 @@ describe('FaceFighter Stadium', () => {
     console.log("Balance change:", deltaBal);
   });
   
-  it('Deposits a Fighter', async () => {
+  it('Deposits Fighters for each user', async () => {
     console.log("\n");
-    [teamPda, _bump] = await anchor.web3.PublicKey.findProgramAddress(
-      [
-        Buffer.from(anchor.utils.bytes.utf8.encode("team")),
-        admin.publicKey.toBuffer()
-      ],
-      stadiumProgram.programId
-    );
-    [fighterStorage, _bump] = await anchor.web3.PublicKey.findProgramAddress(
-      [
-          teamPda.toBuffer(),
-          TOKEN_PROGRAM_ID.toBuffer(),
-          fighterMint.publicKey.toBuffer(),
-      ],
-      ASSOCIATED_TOKEN_PROGRAM_ID
-    );
-    const tx = await stadiumProgram.rpc.depositFighter({
-      accounts: {
-        authority: admin.publicKey,
-        stadium: stadiumPda,
-        state: stateAcc.publicKey,
-        team: teamPda,
-        fighterMint: fighterMint.publicKey,
-        fighter: fighterDestination,
-        fighterStorage: fighterStorage,
-        fighterData: fighterDataPda,
-        fighterTrackerCoinDestination: fighterTrackerCoinDestination,
-        fighterGeneratorProgram: fighterGeneratorProgram.programId,
-        systemProgram: anchor.web3.SystemProgram.programId,
-        tokenProgram: TOKEN_PROGRAM_ID,
-        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-        rent: anchor.web3.SYSVAR_RENT_PUBKEY
-      },
-      signers: [admin]
-    });
-    console.log(await printStadiumInfo(stadiumProgram, stadiumPda));
-    console.log(await printGameState(stadiumProgram, stadiumPda, provider));
-  });
-
-  it('Deposits a second Fighter', async () => {
-    console.log("\n");
-    [fighterStorage2, _bump] = await anchor.web3.PublicKey.findProgramAddress(
-      [
-          teamPda.toBuffer(),
-          TOKEN_PROGRAM_ID.toBuffer(),
-          fighterMint2.publicKey.toBuffer(),
-      ],
-      ASSOCIATED_TOKEN_PROGRAM_ID
-    );
-    const tx = await stadiumProgram.rpc.depositFighter({
-      accounts: {
-        authority: admin.publicKey,
-        stadium: stadiumPda,
-        state: stateAcc.publicKey,
-        team: teamPda,
-        fighterMint: fighterMint2.publicKey,
-        fighter: fighterDestination2,
-        fighterStorage: fighterStorage2,
-        fighterData: fighterDataPda2,
-        fighterTrackerCoinDestination: fighterTrackerCoinDestination2,
-        fighterGeneratorProgram: fighterGeneratorProgram.programId,
-        systemProgram: anchor.web3.SystemProgram.programId,
-        tokenProgram: TOKEN_PROGRAM_ID,
-        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
-        rent: anchor.web3.SYSVAR_RENT_PUBKEY
-      },
-      signers: [admin]
-    });
-    console.log(await printStadiumInfo(stadiumProgram, stadiumPda));
-    console.log(await printGameState(stadiumProgram, stadiumPda, provider));
+    for (let i = 0; i < numUsers; i++) {
+      let [newTeamPda, _bump] = await anchor.web3.PublicKey.findProgramAddress(
+        [
+          Buffer.from(anchor.utils.bytes.utf8.encode("team")),
+          users[i].publicKey.toBuffer()
+        ],
+        stadiumProgram.programId
+      );
+      teamPdas.push(newTeamPda);
+      fighterStorages.push([]);
+      for (let j = 0; j < 5; j++) {
+        let [newFighterStorage, _bump] = await anchor.web3.PublicKey.findProgramAddress(
+          [
+              newTeamPda.toBuffer(),
+              TOKEN_PROGRAM_ID.toBuffer(),
+              fighterMints[i][j].publicKey.toBuffer(),
+          ],
+          ASSOCIATED_TOKEN_PROGRAM_ID
+        );
+        const tx = await stadiumProgram.rpc.depositFighter({
+          accounts: {
+            authority: users[i].publicKey,
+            stadium: stadiumPda,
+            state: stateAcc.publicKey,
+            team: newTeamPda,
+            fighterMint: fighterMints[i][j].publicKey,
+            fighter: fighterDestinations[i][j],
+            fighterStorage: newFighterStorage,
+            fighterData: fighterDataPdas[i][j],
+            fighterTrackerCoinDestination: fighterTrackerCoinDestinations[i][j],
+            fighterGeneratorProgram: fighterGeneratorProgram.programId,
+            systemProgram: anchor.web3.SystemProgram.programId,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+            rent: anchor.web3.SYSVAR_RENT_PUBKEY
+          },
+          signers: [users[i]]
+        });
+        fighterStorages[i].push(newFighterStorage);
+        console.log(await printStadiumInfo(stadiumProgram, stadiumPda));
+        console.log(await printGameState(stadiumProgram, stadiumPda, provider));
+      }
+    }
   });
 
   it('Fails to deposit a Fighter that wasnt minted from the Generator', async () => {
@@ -387,7 +395,7 @@ describe('FaceFighter Stadium', () => {
     );
     let [fakeFighterStorage, _fakeFighterStorageBump] = await anchor.web3.PublicKey.findProgramAddress(
       [
-          teamPda.toBuffer(),
+          teamPdas[0].toBuffer(),
           TOKEN_PROGRAM_ID.toBuffer(),
           fakeFighterMint.publicKey.toBuffer(),
       ],
@@ -395,7 +403,7 @@ describe('FaceFighter Stadium', () => {
     );
     let [fakeFighterTrackerCoinDestination, _fakeFighterTrackerCoinDestinationBump] = await anchor.web3.PublicKey.findProgramAddress(
       [
-        fighterDataPda.toBuffer(),
+        fighterDataPdas[0][0].toBuffer(),
         TOKEN_PROGRAM_ID.toBuffer(),
         fighterTrackerCoinMint.publicKey.toBuffer(),
       ],
@@ -404,22 +412,22 @@ describe('FaceFighter Stadium', () => {
     try {
       const tx = await stadiumProgram.rpc.depositFighter({
         accounts: {
-          authority: admin.publicKey,
+          authority: users[0].publicKey,
           stadium: stadiumPda,
           state: stateAcc.publicKey,
-          team: teamPda,
+          team: teamPdas[0],
           fighterMint: fakeFighterMint.publicKey,
           fighter: fakeFighterDestination,
           fighterStorage: fakeFighterStorage,
-          fighterData: fighterDataPda,
-          fighterTrackerCoinDestination: fighterTrackerCoinDestination,
+          fighterData: fighterDataPdas[0][0],
+          fighterTrackerCoinDestination: fakeFighterTrackerCoinDestination,
           fighterGeneratorProgram: fighterGeneratorProgram.programId,
           systemProgram: anchor.web3.SystemProgram.programId,
           tokenProgram: TOKEN_PROGRAM_ID,
           associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
           rent: anchor.web3.SYSVAR_RENT_PUBKEY
         },
-        signers: [admin]
+        signers: [users[0]]
       });
     }
     catch {
@@ -432,17 +440,17 @@ describe('FaceFighter Stadium', () => {
     try {
       const tx = await stadiumProgram.rpc.retrieveFighter(0, {
         accounts: {
-          authority: admin.publicKey,
+          authority: users[0].publicKey,
           stadium: stadiumPda,
           state: stateAcc.publicKey,
-          team: teamPda,
-          fighterMint: fighterMint.publicKey,
-          fighterDestination: fighterDestination,
-          fighterStorage: fighterStorage,
+          team: teamPdas[0],
+          fighterMint: fighterMints[0][0].publicKey,
+          fighterDestination: fighterDestinations[0][0],
+          fighterStorage: fighterStorages[0][0],
           systemProgram: anchor.web3.SystemProgram.programId,
           tokenProgram: TOKEN_PROGRAM_ID
         },
-        signers: [admin]
+        signers: [users[0]]
       });
     }
     catch {
@@ -466,22 +474,22 @@ describe('FaceFighter Stadium', () => {
 
   it('Retrieves a Fighter and collects their owed bounty', async () => {
     console.log("\n");
-    let oldBal = await provider.connection.getBalance(admin.publicKey);
+    let oldBal = await provider.connection.getBalance(users[0].publicKey);
     const tx = await stadiumProgram.rpc.retrieveFighter(0, {
       accounts: {
-        authority: admin.publicKey,
+        authority: users[0].publicKey,
         stadium: stadiumPda,
         state: stateAcc.publicKey,
-        team: teamPda,
-        fighterMint: fighterMint.publicKey,
-        fighterDestination: fighterDestination,
-        fighterStorage: fighterStorage,
+        team: teamPdas[0],
+        fighterMint: fighterMints[0][0].publicKey,
+        fighterDestination: fighterDestinations[0][0],
+        fighterStorage: fighterStorages[0][0],
         systemProgram: anchor.web3.SystemProgram.programId,
         tokenProgram: TOKEN_PROGRAM_ID
       },
-      signers: [admin]
+      signers: [users[0]]
     });
-    let newBal = await provider.connection.getBalance(admin.publicKey);
+    let newBal = await provider.connection.getBalance(users[0].publicKey);
     let deltaBal = (newBal - oldBal) / LAMPORTS_PER_SOL;
     console.log(await printStadiumInfo(stadiumProgram, stadiumPda));
     console.log(await printGameState(stadiumProgram, stadiumPda, provider));
@@ -496,19 +504,19 @@ describe('FaceFighter Stadium', () => {
           authority: admin.publicKey,
           stadium: stadiumPda,
           state: stateAcc.publicKey,
-          team: teamPda,
-          fighterMint: fighterMint.publicKey,
-          fighter: fighterDestination,
-          fighterStorage: fighterStorage,
-          fighterData: fighterDataPda,
-          fighterTrackerCoinDestination: fighterTrackerCoinDestination,
+          team: teamPdas[0],
+          fighterMint: fighterMints[0][0].publicKey,
+          fighter: fighterDestinations[0][0],
+          fighterStorage: fighterStorages[0][0],
+          fighterData: fighterDataPdas[0][0],
+          fighterTrackerCoinDestination: fighterTrackerCoinDestinations[0][0],
           fighterGeneratorProgram: fighterGeneratorProgram.programId,
           systemProgram: anchor.web3.SystemProgram.programId,
           tokenProgram: TOKEN_PROGRAM_ID,
           associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
           rent: anchor.web3.SYSVAR_RENT_PUBKEY
         },
-        signers: [admin]
+        signers: [users[0]]
       });
     }
     catch {
@@ -531,6 +539,40 @@ describe('FaceFighter Stadium', () => {
     catch{
       console.log("Tx failed")
     }
+    console.log(await printStadiumInfo(stadiumProgram, stadiumPda));
+    console.log(await printGameState(stadiumProgram, stadiumPda, provider));
+  });
+
+  it('Releases the Bears to end the first round', async () => {
+    console.log("\n");
+    console.log("Sleeping until round has concluded...");
+    await new Promise(f => setTimeout(f, 15000));
+    console.log("\n");
+    const tx = await stadiumProgram.rpc.releaseBears({
+      accounts: {
+        authority: admin.publicKey,
+        stadium: stadiumPda,
+        state: stateAcc.publicKey
+      },
+      signers: [admin]
+    });
+    console.log(await printStadiumInfo(stadiumProgram, stadiumPda));
+    console.log(await printGameState(stadiumProgram, stadiumPda, provider));
+  });
+
+  it('Releases the Bears to end the first round', async () => {
+    console.log("\n");
+    console.log("Sleeping until round has concluded...");
+    await new Promise(f => setTimeout(f, 15000));
+    console.log("\n");
+    const tx = await stadiumProgram.rpc.releaseBears({
+      accounts: {
+        authority: admin.publicKey,
+        stadium: stadiumPda,
+        state: stateAcc.publicKey
+      },
+      signers: [admin]
+    });
     console.log(await printStadiumInfo(stadiumProgram, stadiumPda));
     console.log(await printGameState(stadiumProgram, stadiumPda, provider));
   });
